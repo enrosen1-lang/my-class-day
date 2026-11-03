@@ -1,0 +1,347 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#242d59">
+<title>My Class Day</title>
+
+<style>
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+  background: #f5f6fb;
+  color: #202747;
+}
+main { max-width: 720px; margin: auto; }
+header { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+h1 { font-size: 27px; margin-bottom: 5px; }
+h2 { font-size: 19px; }
+button {
+  padding: 11px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: #5368d9;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+.secondary { background: #e7eaff; color: #263264; }
+.hero {
+  margin: 22px 0;
+  padding: 24px;
+  border-radius: 22px;
+  background: #242d59;
+  color: white;
+}
+.hero p { color: #dce2ff; }
+#countdown { font-size: 34px; font-weight: bold; margin: 20px 0 5px; }
+.day { margin: 23px 0 9px; font-size: 12px; font-weight: bold; letter-spacing: 2px; }
+.class {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 15px; margin: 8px 0;
+  background: white; border: 1px solid #e4e7f0;
+  border-radius: 14px;
+}
+.time { min-width: 83px; font-size: 13px; font-weight: bold; color: #5368b9; }
+.details { flex: 1; }
+.details p { font-size: 13px; color: #69738b; margin: 6px 0; }
+.small { padding: 7px; margin-left: 3px; font-size: 12px; }
+.tag { font-size: 11px; color: #5368b9; }
+.note { font-size: 12px; color: #737d92; line-height: 1.5; margin-top: 25px; }
+dialog { border: 0; border-radius: 18px; width: min(95%, 450px); }
+dialog::backdrop { background: #10152a99; }
+form { display: grid; gap: 13px; }
+label { font-size: 13px; font-weight: bold; }
+input, select { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccd2e2; border-radius: 8px; }
+.days { display: flex; flex-wrap: wrap; gap: 10px; }
+.days label { font-weight: normal; }
+.days input { width: auto; }
+</style>
+</head>
+
+<body>
+<main>
+<header>
+  <div>
+    <h1>My Class Day</h1>
+    <div id="today"></div>
+  </div>
+  <button onclick="openForm()">+ Add class</button>
+</header>
+
+<section class="hero">
+  <strong>YOUR NEXT CLASS</strong>
+  <h2 id="nextName">Loading schedule...</h2>
+  <p id="nextLocation"></p>
+  <div id="countdown">Loading...</div>
+  <p id="nextTime"></p>
+</section>
+
+<button onclick="openForm()">+ Add a class</button>
+<button class="secondary" onclick="resetSchedule()">Reset schedule</button>
+
+<h2>Your weekly schedule</h2>
+<div id="schedule"></div>
+
+<p class="note">
+Your schedule is saved in this browser. The 30-minute reminder is a preference
+for now, not an active notification. Background notifications will require
+additional setup. Please verify class times and rooms against your current ASU schedule.
+</p>
+</main>
+
+<dialog id="editor">
+<form id="classForm">
+<h2 id="formHeading">Add a class</h2>
+<input type="hidden" id="editId">
+
+<label>Class name
+<input id="className" required placeholder="e.g. CHM 118 — Lecture">
+</label>
+
+<label>Building and room
+<input id="location" placeholder="e.g. Physical Sciences 152">
+</label>
+
+<label>Start time
+<input id="start" type="time" required>
+</label>
+
+<label>End time
+<input id="end" type="time" required>
+</label>
+
+<label>Days of the week</label>
+<div class="days">
+<label><input type="checkbox" name="day" value="1"> Mon</label>
+<label><input type="checkbox" name="day" value="2"> Tue</label>
+<label><input type="checkbox" name="day" value="3"> Wed</label>
+<label><input type="checkbox" name="day" value="4"> Thu</label>
+<label><input type="checkbox" name="day" value="5"> Fri</label>
+<label><input type="checkbox" name="day" value="6"> Sat</label>
+<label><input type="checkbox" name="day" value="0"> Sun</label>
+</div>
+
+<label>Reminder preference
+<select id="reminder">
+<option value="30">30 minutes before</option>
+<option value="15">15 minutes before</option>
+<option value="10">10 minutes before</option>
+<option value="0">No reminder</option>
+</select>
+</label>
+
+<div style="display:flex;gap:8px;justify-content:flex-end">
+<button type="button" class="secondary" onclick="editor.close()">Cancel</button>
+<button type="submit">Save class</button>
+</div>
+</form>
+</dialog>
+
+<script>
+const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+const sampleClasses = [
+{id:"1",name:"MAT 270 — Lecture",location:"Physical Sciences F-Wing 101",days:[1,3,5],start:"08:00",end:"08:50",reminder:30},
+{id:"2",name:"CHM 118 — Lecture",location:"Physical Sciences H-Wing 152",days:[1,3,5],start:"09:05",end:"09:55",reminder:30},
+{id:"3",name:"CHM 112 — Laboratory",location:"Physical Sciences D-Wing 132",days:[2],start:"09:00",end:"11:50",reminder:30},
+{id:"4",name:"ENG 102 — Lecture",location:"Durham Hall 207",days:[4],start:"09:00",end:"10:15",reminder:30},
+{id:"5",name:"HON 272 — Lecture",location:"Cottonwood Hall 101",days:[1,3],start:"12:00",end:"13:15",reminder:30},
+{id:"6",name:"CHM 118 — Recitation",location:"Noble Science Library 105",days:[1],start:"14:30",end:"15:20",reminder:30},
+{id:"7",name:"MAT 270 — Recitation",location:"Wexler Hall A102",days:[2],start:"16:30",end:"17:20",reminder:30},
+{id:"8",name:"DCE 118 — Studio",location:"Nelson Fine Art Center 122",days:[2,4],start:"18:00",end:"19:15",reminder:30}
+];
+
+let classes;
+try {
+  classes = JSON.parse(localStorage.getItem("myClassDayClasses")) || sampleClasses;
+} catch {
+  classes = sampleClasses;
+}
+
+const $ = id => document.getElementById(id);
+
+function save() {
+  localStorage.setItem("myClassDayClasses", JSON.stringify(classes));
+  render();
+}
+
+function timeText(value) {
+  const [h,m] = value.split(":").map(Number);
+  return new Date(2000,0,1,h,m).toLocaleTimeString([], {
+    hour:"numeric", minute:"2-digit"
+  });
+}
+
+function upcomingClasses() {
+  const now = new Date();
+  const result = [];
+
+  for (let offset = 0; offset < 8; offset++) {
+    const date = new Date(now);
+    date.setDate(now.getDate() + offset);
+
+    classes.forEach(c => {
+      if (!c.days.includes(date.getDay())) return;
+      const [h,m] = c.start.split(":").map(Number);
+      const startTime = new Date(
+        date.getFullYear(),date.getMonth(),date.getDate(),h,m
+      );
+      if (startTime > now) result.push({c,startTime});
+    });
+  }
+
+  return result.sort((a,b) => a.startTime - b.startTime);
+}
+
+function safe(text) {
+  return String(text).replace(/[&<>"']/g, ch => ({
+    "&":"&amp;", "<":"&lt;", ">":"&gt;",
+    '"':"&quot;", "'":"&#39;"
+  })[ch]);
+}
+
+function render() {
+  const now = new Date();
+
+  $("today").textContent = now.toLocaleDateString([], {
+    weekday:"long",month:"long",day:"numeric"
+  });
+
+  const next = upcomingClasses()[0];
+
+  if (next) {
+    $("nextName").textContent = next.c.name;
+    $("nextLocation").textContent = next.c.location;
+    $("nextTime").textContent =
+      dayNames[next.startTime.getDay()] + " at " + timeText(next.c.start);
+
+    const ms = next.startTime - now;
+    const minutes = Math.floor(ms / 60000);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    $("countdown").textContent = days
+      ? `${days}d ${hours%24}h ${minutes%60}m`
+      : hours
+        ? `${hours}h ${minutes%60}m`
+        : `${minutes}m ${Math.floor(ms/1000)%60}s`;
+  } else {
+    $("nextName").textContent = "No upcoming classes";
+    $("nextLocation").textContent = "Enjoy your free time!";
+    $("nextTime").textContent = "";
+    $("countdown").textContent = "—";
+  }
+
+  let html = "";
+
+  for (let day = 0; day < 7; day++) {
+    const list = classes
+      .filter(c => c.days.includes(day))
+      .sort((a,b) => a.start.localeCompare(b.start));
+
+    if (!list.length) continue;
+
+    html += `<div class="day">${dayNames[day].toUpperCase()}</div>`;
+
+    list.forEach(c => {
+      html += `
+      <article class="class">
+        <div class="time">${timeText(c.start)}<br>– ${timeText(c.end)}</div>
+        <div class="details">
+          <strong>${safe(c.name)}</strong>
+          <p>${safe(c.location || "Location not added")}</p>
+          <span class="tag">${c.reminder ? c.reminder+"-minute reminder preference" : "No reminder"}</span>
+        </div>
+        <div>
+          <button class="small secondary" onclick="editClass('${c.id}')">Edit</button>
+          <button class="small secondary" onclick="deleteClass('${c.id}')">×</button>
+        </div>
+      </article>`;
+    });
+  }
+
+  $("schedule").innerHTML = html || "No classes added yet.";
+}
+
+function openForm(c = null) {
+  $("classForm").reset();
+  $("editId").value = c ? c.id : "";
+  $("formHeading").textContent = c ? "Edit class" : "Add a class";
+  $("className").value = c?.name || "";
+  $("location").value = c?.location || "";
+  $("start").value = c?.start || "09:00";
+  $("end").value = c?.end || "10:00";
+  $("reminder").value = String(c?.reminder ?? 30);
+
+  document.querySelectorAll('[name="day"]').forEach(box => {
+    box.checked = !!c?.days.includes(Number(box.value));
+  });
+
+  $("editor").showModal();
+}
+
+function editClass(id) {
+  openForm(classes.find(c => c.id === id));
+}
+
+function deleteClass(id) {
+  if (confirm("Delete this class?")) {
+    classes = classes.filter(c => c.id !== id);
+    save();
+  }
+}
+
+function resetSchedule() {
+  if (confirm("Restore the sample ASU schedule? Your edits will be replaced.")) {
+    classes = sampleClasses.map(c => ({...c,days:[...c.days]}));
+    save();
+  }
+}
+
+$("classForm").addEventListener("submit", event => {
+  event.preventDefault();
+
+  const selectedDays = [...document.querySelectorAll('[name="day"]:checked')]
+    .map(box => Number(box.value));
+
+  if (!selectedDays.length) {
+    alert("Choose at least one day.");
+    return;
+  }
+
+  if ($("end").value <= $("start").value) {
+    alert("End time must be later than start time.");
+    return;
+  }
+
+  const id = $("editId").value || String(Date.now());
+
+  const item = {
+    id,
+    name:$("className").value.trim(),
+    location:$("location").value.trim(),
+    start:$("start").value,
+    end:$("end").value,
+    days:selectedDays,
+    reminder:Number($("reminder").value)
+  };
+
+  const index = classes.findIndex(c => c.id === id);
+
+  if (index >= 0) classes[index] = item;
+  else classes.push(item);
+
+  $("editor").close();
+  save();
+});
+
+render();
+setInterval(render, 1000);
+</script>
+</body>
+</html>
