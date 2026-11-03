@@ -391,5 +391,76 @@ if (notificationButton) {
   });
 }
 </script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+const SUPABASE_URL = "https://xohvwfjqtgestunqwjmc.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_dJZxUsOzk0N5fhGOWUme1g_ek5uvGze";
+const VAPID_PUBLIC_KEY = "BIYbLntSoaWA8hKoU8rOrJE5K1cnr3u9PJbFjuECG6O4AnMcpDWsrG66JzRP460_PozrQ_b3x_XFR8Ef-2Iijkc";
+
+const supabaseClient = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY
+);
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/-/g, "+")
+    .replace(/_/g, "/");
+
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map(char => char.charCodeAt(0)));
+}
+
+async function enableRealClassNotifications() {
+  try {
+    const { data, error } = await supabaseClient.auth.signInAnonymously();
+
+    if (error) throw error;
+
+    const { data: sessionData } = await supabaseClient.auth.getSession();
+    const accessToken = sessionData.session.access_token;
+
+    const registration = await navigator.serviceWorker.ready;
+
+    let subscription = await registration.pushManager.getSubscription();
+
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+    }
+
+    const response = await fetch(
+      `${SUPABASE_URL}/functions/v1/save-push-subscription`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": SUPABASE_PUBLISHABLE_KEY,
+          "Authorization": `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({ subscription })
+      }
+    );
+
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(message || "Could not save notification subscription.");
+    }
+
+    alert("Your device is registered for class notifications!");
+  } catch (error) {
+    console.error("Notification setup failed:", error);
+    alert("We couldn't finish notification setup. Please try again.");
+  }
+}
+
+document
+  .getElementById("enableNotifications")
+  ?.addEventListener("click", enableRealClassNotifications);
+</script>
 </body>
 </html>
